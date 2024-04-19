@@ -6,6 +6,7 @@ volatile byte counter = 0;
 
 void setup() {
   Serial.begin(9600);
+  Serial.println("Started");
 
   pinMode(A, INPUT_PULLUP);
   pinMode(B, INPUT_PULLUP);
