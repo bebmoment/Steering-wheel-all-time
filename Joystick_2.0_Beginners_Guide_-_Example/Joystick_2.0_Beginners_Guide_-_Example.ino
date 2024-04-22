@@ -5,7 +5,7 @@
 //Initial Definitions and Setup
 //Libary Inclusion
 #include <Joystick.h>
-
+#include <Encoder.h>
 //Define and Allocate Input Pins to memorable names
 #define joyX A0
 #define joyY A1
@@ -20,6 +20,7 @@ int xAxis_ = 0;
 int yAxis_ = 0;
 int rzAxis_ = 0;
 int throttle_ = 0;
+int steeringAxis = 0;
 
 //Setting up Buttons
 //Updating a static variable gives greater stability than reading directly from the digital pin.
@@ -47,8 +48,8 @@ int throttle_ = 0;
 //Include Brake: Determines whether a Brake axis is avalible for used by the HID system, defined as a bool value (default:true)
 //Include Steering: Determines whether a Steering axis is avalible for used by the HID system, defined as a bool value (default:true)
 
-Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 3, 0,true,true,false,false,false,false,false,false,false,false,false);
-
+Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 3, 0,false,false,false,false,false,false,false,false,false,false,true);
+Encoder myEnc(0, 1);
 //Set Auto Send State
 //Enables Auto Sending, allowing the controller to send information to the HID system, rather than waiting to be asked.
 const bool initAutoSendState = true;
@@ -59,34 +60,36 @@ void setup() {
   pinMode(joyButton1, INPUT_PULLUP);
   pinMode(joyButton2, INPUT_PULLUP);
   pinMode(joyButton3, INPUT_PULLUP);
-
+  Serial.begin(9600);
   //Start Joystick - Needed to start the Joystick function libary
   Joystick.begin();
 }
-
+long oldPosition = -999;
 void loop() {
   
   //Axis Reading during Runtime
   //Setting Read functions for each axis and parsing correctly. The X axis will be used as an example for explanation
 
   //Reading the X Axis analog pin to the xAxis_ variable for processing
-  xAxis_ = analogRead(joyX);
+  // xAxis_ = analogRead(joyX);
   //Mapping the X Axis data from a 0-1023 to 0-255 range for a smoother action
-//  xAxis_ = map(xAxis_,0,1023,0,255);/
+  // xAxis_ = map(xAxis_,4,1023,-255,255);
   //Set the Joystick X Axis value as the new, smoother, value
-  Joystick.setXAxis(xAxis_);
+  // Joystick.setXAxis(xAxis_);
+  // Serial.println(xAxis_);
 
-  yAxis_ = analogRead(joyY);
-//  yAxis_ = map(yAxis_,0,1023,0,255);/
-  Joystick.setYAxis(yAxis_);
+  // yAxis_ = analogRead(joyY);
+  // yAxis_ = map(yAxis_,4,1023,-255,255);
+  // Joystick.setYAxis(yAxis_);
+  // Serial.println(yAxis_);
 
-//  rzAxis_ = analogRead(joyRZ);
-//  rzAxis_ = map(rzAxis_,0,1023,0,255);
-//  Joystick.setRzAxis(rzAxis_);
-//
-//  throttle_ = analogRead(joyThrottle);
-//  throttle_ = map(throttle_,0,1023,0,255);
-//  Joystick.setThrottle(throttle_);
+  // rzAxis_ = analogRead(joyRZ);
+  // rzAxis_ = map(rzAxis_,0,1023,0,255);
+  // Joystick.setRzAxis(rzAxis_);
+
+  // throttle_ = analogRead(joyThrottle);
+  // throttle_ = map(throttle_,0,1023,0,255);
+  // Joystick.setThrottle(throttle_);
   
   //Button Reading during Runtime
   //Setting Read functions for each button, using a state value for memory. Button 1 will be used as an example for explanation
@@ -111,8 +114,15 @@ void loop() {
     Joystick.setButton(2, currentButton3State);
     lastButton3State = currentButton3State;
   }
+  long newPosition = myEnc.read();
+  if (newPosition != oldPosition) {
+    oldPosition = newPosition;
+    Serial.println(newPosition); 
+    steeringAxis = newPosition;
+    Joystick.setSteering(steeringAxis);
+  }
 
 //Pole Delay/Debounce
 //To reduce unessecary processing, the frequency of the reading loop is delayed. The value(in ms) can be changed to match requirement
-delay(10);
+// delay(10);
 }
