@@ -1,7 +1,4 @@
 {
     "board": "arduino:avr:leonardo",
-    "port": "/dev/ttyACM0",
-    "programmer": "avrisp",
-    "sketch": "encodr/encodr.ino",
-    "intelliSenseGen": "global"
+    "port": "/dev/ttyACM0"
 }
