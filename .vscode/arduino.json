@@ -1,4 +1,6 @@
 {
     "board": "arduino:avr:leonardo",
-    "port": "/dev/ttyACM0"
+    "port": "/dev/ttyACM0",
+    "sketch": "motor/motor.ino",
+    "programmer": "avrisp"
 }
