@@ -1,6 +1,6 @@
 {
     "board": "arduino:avr:leonardo",
-    "port": "/dev/ttyACM0",
+    "port": "COM12",
     "sketch": "motor/motor.ino",
     "programmer": "avrisp"
 }
