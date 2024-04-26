@@ -9,12 +9,26 @@
 //Define and Allocate Input Pins to memorable names
 #define joyX A0
 #define joyY A1
-#define joyRZ A3
-#define joyThrottle A2
+// #define joyRZ A3
+// #define joyThrottle A2
 #define joyButton1 9
 #define joyButton2 8
 #define joyButton3 7
 
+#define ENCODER_INIT_VALUE -999
+
+// bunch of booleans to know what the heck is the constructor
+#define INCLUDE_X_AXIS false
+#define INCLUDE_Y_AXIS false
+#define INCLUDE_Z_AXIS false
+#define INCLUDE_RX_AXIS false
+#define INCLUDE_RY_AXIS false
+#define INCLUDE_RZ_AXIS false
+#define INCLUDE_RUTTER false
+#define INCLUDE_THROTTLE false
+#define INCLUDE_ACCELERATOR false
+#define INCLUDE_BRAKE false
+#define INCLUDE_STEERING true
 //Initializing Axis as Integers, at a 0 default value
 int xAxis_ = 0;
 int yAxis_ = 0;
@@ -48,7 +62,7 @@ int steeringAxis = 0;
 //Include Brake: Determines whether a Brake axis is avalible for used by the HID system, defined as a bool value (default:true)
 //Include Steering: Determines whether a Steering axis is avalible for used by the HID system, defined as a bool value (default:true)
 
-Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 3, 0,false,false,false,false,false,false,false,false,false,false,true);
+Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 3, 0,INCLUDE_X_AXIS,INCLUDE_Y_AXIS,INCLUDE_Z_AXIS,INCLUDE_RX_AXIS,INCLUDE_RY_AXIS,INCLUDE_RZ_AXIS,INCLUDE_RUTTER,INCLUDE_THROTTLE,INCLUDE_ACCELERATOR,INCLUDE_BRAKE,INCLUDE_STEERING);
 Encoder myEnc(0, 1);
 //Set Auto Send State
 //Enables Auto Sending, allowing the controller to send information to the HID system, rather than waiting to be asked.
@@ -64,7 +78,7 @@ void setup() {
   //Start Joystick - Needed to start the Joystick function libary
   Joystick.begin();
 }
-long oldPosition = -999;
+long oldPosition = ENCODER_INIT_VALUE; 
 void loop() {
   
   //Axis Reading during Runtime
@@ -114,6 +128,7 @@ void loop() {
     Joystick.setButton(2, currentButton3State);
     lastButton3State = currentButton3State;
   }
+  // read from the encoder and make send its reading to the arduino as joystick
   long newPosition = myEnc.read();
   if (newPosition != oldPosition) {
     oldPosition = newPosition;
