@@ -3,15 +3,16 @@
 
 //initialize joysticks
 #define joyX A0
-
+#define potentiometerPin A0
+#define joyButton1 9
 // Noise filtering
 bool EMA = true; // Exponential Movement Average
 bool ignoreLSB = true; // ignore least significant bits
 
 //Global Variables
-
+int lastButton1State = 0;
 int xAxis = 0;
-int potentiometerPin = 3;//potentiometer pin #
+// int potentiometerPin = 3;//potentiometer pin #
 int potValue = 0;    //initialization of potentiometer value, equivalent to EMA Y
 int LSB_TO_IGNORE = 1; // # of least significant bits to ignore
 int EMA_S = 0;  //set EMA S for t=1
@@ -37,7 +38,7 @@ float EMA_a = 0.6;      //initialization of EMA alpha
 //Include Brake: Determines whether a Brake axis is avalible for used by the HID system, defined as a bool value (default:true)
 //Include Steering: Determines whether a Steering axis is avalible for used by the HID system, defined as a bool value (default:true)
 
-Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 0, 0,false,false,false,false,false,false,false,false,true,false,false);
+Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 1, 0,false,false,false,false,false,false,false,false,true,false,false);
 
 void setup(){
   Serial.begin(9600);
@@ -71,12 +72,22 @@ void loop(){
   if(EMA){
     EMA_S = (EMA_a*potValue) + ((1-EMA_a)*EMA_S);    //run the EMA
     xCommanded = EMA_S + 512;
-    Joystick.setAccelerator(xCommanded);
-    Serial.println(xCommanded); //print digital value to serial... add 512 as map input range is 512-1023
+  
+    //Serial.println(xCommanded); //print digital value to serial... add 512 as map input range is 512-1023
   }
   else{
     xCommanded = potValue + 512;
-    Joystick.setAccelerator(xCommanded);
-    Serial.println(xCommanded);
+    
+    //Serial.println(xCommanded);
+  }
+  Joystick.setAccelerator(xCommanded);
+
+  int currentButton1State = !digitalRead(joyButton1);
+  //If loop - Check that the button has actually changed.
+  if (currentButton1State != lastButton1State){
+    //If the button has changed, set the specified HID button to the Current Button State
+    Joystick.setButton(0, currentButton1State);
+    //Update the Stored Button State
+    lastButton1State = currentButton1State;
   }
 }

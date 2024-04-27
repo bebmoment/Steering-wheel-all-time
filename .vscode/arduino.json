@@ -1,6 +1,6 @@
 {
     "board": "arduino:avr:leonardo",
-    "port": "COM12",
-    "sketch": "motor/motor.ino",
+    "port": "/dev/ttyACM0",
+    "sketch": "Potentiometer/Potentiometer.ino",
     "programmer": "avrisp"
 }
