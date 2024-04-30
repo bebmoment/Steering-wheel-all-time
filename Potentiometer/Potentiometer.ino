@@ -3,7 +3,9 @@
 
 //initialize joysticks
 #define joyX A0
-#define potentiometerPin A0
+#define acceleratorPin A0
+#define brakePin A1
+#define clutchPin A2
 #define joyButton1 9
 // Noise filtering
 bool EMA = true; // Exponential Movement Average
@@ -12,11 +14,17 @@ bool ignoreLSB = true; // ignore least significant bits
 //Global Variables
 int lastButton1State = 0;
 int xAxis = 0;
-// int potentiometerPin = 3;//potentiometer pin #
-int potValue = 0;    //initialization of potentiometer value, equivalent to EMA Y
+// int acceleratorPin = 3;//potentiometer pin #
+int acceleratorValue = 0;    //initialization of potentiometer value, equivalent to EMA Y
+int brakeValue = 0;
+int clutchValue = 0;
 int LSB_TO_IGNORE = 1; // # of least significant bits to ignore
-int EMA_S = 0;  //set EMA S for t=1
-int xCommanded = 0;
+int EMA_ACCELERATOR = 0;  //set accelerator EMA for t=1
+int EMA_BRAKE = 0; // set brake EMA for t=1
+int EMA_CLUTCH = 0; // set clutch EMA for t=1
+int acceleratorCommanded = 0;
+int brakeCommanded = 0;
+int clutchCommanded = 0;
 float EMA_a = 0.6;      //initialization of EMA alpha
 
 //Defining the Joystick
@@ -38,14 +46,16 @@ float EMA_a = 0.6;      //initialization of EMA alpha
 //Include Brake: Determines whether a Brake axis is avalible for used by the HID system, defined as a bool value (default:true)
 //Include Steering: Determines whether a Steering axis is avalible for used by the HID system, defined as a bool value (default:true)
 
-Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 1, 0,false,false,false,false,false,false,false,false,true,false,false);
+Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 1, 0,false,false,true,false,false,false,false,false,true,true,false); // zAxis, accel, brake = true
 
 void setup(){
   Serial.begin(9600);
   Joystick.begin();
 
   if(EMA){
-    int EMA_S = analogRead(potentiometerPin);  //set EMA S for t=1
+    EMA_ACCELERATOR = analogRead(acceleratorPin);  //set accelerator EMA for t=1
+    EMA_BRAKE = analogRead(brakePin); // set brake EMA for t=1
+    EMA_CLUTCH = analogRead(clutchPin); // set clutch EMA for t=1
   }
 }
  
@@ -63,24 +73,37 @@ void loop(){
 
   // LSB reduction
   if(ignoreLSB){
-    potValue = analogRead(potentiometerPin) >> LSB_TO_IGNORE;
+    acceleratorValue = analogRead(acceleratorPin) >> LSB_TO_IGNORE;
+    brakeValue = analogRead(brakePin) >> LSB_TO_IGNORE;
+    clutchValue = analogRead(clutchValue) >> LSB_TO_IGNORE;
   }else{
-    potValue = analogRead(potentiometerPin);
+    acceleratorValue = analogRead(acceleratorPin);
+    brakeValue = analogRead(brakePin);
+    clutchValue = analogRead(clutchValue);
   }
 
   // EMA filtering
   if(EMA){
-    EMA_S = (EMA_a*potValue) + ((1-EMA_a)*EMA_S);    //run the EMA
-    xCommanded = EMA_S + 512;
+    EMA_ACCELERATOR = (EMA_a*acceleratorValue) + ((1-EMA_a)*EMA_ACCELERATOR);    //run accelerator EMA
+    EMA_BRAKE = (EMA_a*brakeValue) + ((1-EMA_a)*EMA_BRAKE);    //run brake EMA
+    EMA_CLUTCH = (EMA_a*clutchValue) + ((1-EMA_a)*EMA_CLUTCH);    //run brake EMA
+
+    acceleratorCommanded = EMA_ACCELERATOR + 512;
+    brakeCommanded = EMA_BRAKE + 512;
+    clutchCommanded = EMA_CLUTCH + 512;
   
-    //Serial.println(xCommanded); //print digital value to serial... add 512 as map input range is 512-1023
+    //Serial.println(acceleratorCommanded); //print digital value to serial... add 512 as map input range is 512-1023
   }
   else{
-    xCommanded = potValue + 512;
+    acceleratorCommanded = acceleratorValue + 512;
+    brakeCommanded = brakeValue + 512;
+    clutchCommanded = clutchValue + 512;
     
-    //Serial.println(xCommanded);
+    //Serial.println(acceleratorCommanded);
   }
-  Joystick.setAccelerator(xCommanded);
+  Joystick.setAccelerator(acceleratorCommanded);
+  Joystick.setBrake(brakeCommanded);
+  Joystick.setZAxis(clutchCommanded);
 
   int currentButton1State = !digitalRead(joyButton1);
   //If loop - Check that the button has actually changed.
