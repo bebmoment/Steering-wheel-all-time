@@ -22,13 +22,13 @@
   const int RPWM_Output = 5; // Arduino PWM output pin 5; connect to IBT-2 pin 1 (RPWM)
   const int LPWM_Output = 6; // Arduino PWM output pin 6; connect to IBT-2 pin 2 (LPWM)
 
-//Potentiometers
+// Potentiometers
   #define acceleratorPin A0
   #define brakePin A1
   #define clutchPin A2
   #define dummyButton1 9
 
-  // Joystick constructors
+// Joystick constructors
   #define INCLUDE_X_AXIS false
   #define INCLUDE_Y_AXIS false
   #define INCLUDE_Z_AXIS true
@@ -41,16 +41,22 @@
   #define INCLUDE_BRAKE true
   #define INCLUDE_STEERING false
 
+// Serial monitor config
+  #define PRINT_PEDALS true
+  #define PRINT_MOTOR false
+  #define PRINT_ENCODER false
+
+// EMA filter config
   bool EMA = true; // Exponential Movement Average
   bool ignoreLSB = true; // ignore least significant bits
 
-    // configure EMA and LSB reduction filters for floor pedals
+// configure EMA and LSB reduction filters for floor pedals
   int LSB_TO_IGNORE = 1; // how many LSB to ignore from incoming potentiometer info
   float EMA_a = 0.6;      //initialization of EMA alpha
 
   int dummyButtonState = 0;
 
-  // initialize starting pedal values for t = 1
+// initialize starting pedal values for t = 1
   int acceleratorValue, brakeValue, clutchValue,
       EMA_ACCELERATOR, EMA_BRAKE, EMA_CLUTCH, 
       acceleratorCommanded, brakeCommanded, clutchCommanded 
@@ -68,7 +74,7 @@ void setup() {
 }
 
 void loop() {
-  
+
 }
 
 // setup functions
@@ -99,8 +105,15 @@ void startPedals(){
   }
 }
 
-void serialMonitorLoop(){
-    printOutputs(ignoreLSB, EMA);
+void SerialMonitorLoop(){
+  if(PRINT_PEDALS){
+    Serial.print("Accelerator = ");
+    Serial.print(acceleratorCommanded);
+    Serial.print(" | Brake = ");
+    Serial.print(brakeCommanded);
+    Serial.print(" | Clutch = ");
+    Serial.println(clutchCommanded);
+  }
 }
 
 // loop functions
@@ -138,14 +151,11 @@ void pedalLoop(){
     brakeCommanded = EMA_BRAKE + 512;
     clutchCommanded = EMA_CLUTCH + 512;
   
-    printOutputs(acceleratorCommanded); //print digital value to serial... add 512 as map input range is 512-1023
   }
   else{
     acceleratorCommanded = acceleratorValue + 512;
     brakeCommanded = brakeValue + 512;
     clutchCommanded = clutchValue + 512;
-    
-    printOutputs(acceleratorCommanded);
   }
   pedalController.setAccelerator(acceleratorCommanded);
   pedalController.setBrake(brakeCommanded);
@@ -188,13 +198,4 @@ void turn(bool direction, int sensorValue)
         analogWrite(LPWM_Output, (sensorValue - 512) / 2);
         analogWrite(RPWM_Output, 0);
     }
-}
-
-void printOutputs(bool ignoreLSB_, bool EMA_){
-  // printing noise filter configuration
-  if(ignoreLSB_){
-    Serial.print("ignoreLSB | ");
-  }if(EMA_){
-    Serial.print("EMA | ");
-  }
 }
