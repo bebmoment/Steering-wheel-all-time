@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 
-#define SENSOR_PIN A0      // center pin of the potentiometer
+#define SENSOR_PIN A4      // center pin of the potentiometer
 const int RPWM_Output = 5; // Arduino PWM output pin 5; connect to IBT-2 pin 1 (RPWM)
 const int LPWM_Output = 6; // Arduino PWM output pin 6; connect to IBT-2 pin 2 (LPWM)
 void setup()

@@ -1,6 +1,0 @@
-{
-    "board": "arduino:avr:leonardo",
-    "port": "/dev/ttyACM0",
-    "sketch": "Potentiometer/Potentiometer.ino",
-    "programmer": "avrisp"
-}

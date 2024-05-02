@@ -1,20 +1,33 @@
 #include <Arduino.h>
 #include <Joystick.h>
+#include <Encoder.h>
 
 //initialize joysticks
-#define joyX A0
 #define acceleratorPin A0
 #define brakePin A1
 #define clutchPin A2
-#define joyButton1 9
+#define dummyButton 9
+
+// Joystick constructors
+  #define INCLUDE_X_AXIS false
+  #define INCLUDE_Y_AXIS false
+  #define INCLUDE_Z_AXIS true
+  #define INCLUDE_RX_AXIS false
+  #define INCLUDE_RY_AXIS false
+  #define INCLUDE_RZ_AXIS false
+  #define INCLUDE_RUTTER false
+  #define INCLUDE_THROTTLE false
+  #define INCLUDE_ACCELERATOR true
+  #define INCLUDE_BRAKE true
+  #define INCLUDE_STEERING false
+
 // Noise filtering
 bool EMA = true; // Exponential Movement Average
 bool ignoreLSB = true; // ignore least significant bits
 
 //Global Variables
-int lastButton1State = 0;
-int xAxis = 0;
-// int acceleratorPin = 3;//potentiometer pin #
+int dummyButtonState = 0;
+
 int acceleratorValue = 0;    //initialization of potentiometer value, equivalent to EMA Y
 int brakeValue = 0;
 int clutchValue = 0;
@@ -46,30 +59,22 @@ float EMA_a = 0.6;      //initialization of EMA alpha
 //Include Brake: Determines whether a Brake axis is avalible for used by the HID system, defined as a bool value (default:true)
 //Include Steering: Determines whether a Steering axis is avalible for used by the HID system, defined as a bool value (default:true)
 
-Joystick_ Joystick(0x12, JOYSTICK_TYPE_JOYSTICK, 1, 0,false,false,true,false,false,false,false,false,true,true,false); // zAxis, accel, brake = true
+Joystick_ pedalController(0x12, JOYSTICK_TYPE_JOYSTICK, 1, 0, INCLUDE_X_AXIS, INCLUDE_Y_AXIS, INCLUDE_Z_AXIS, INCLUDE_RX_AXIS, INCLUDE_RY_AXIS, INCLUDE_RZ_AXIS, INCLUDE_RUTTER, INCLUDE_THROTTLE, INCLUDE_ACCELERATOR, INCLUDE_BRAKE, INCLUDE_STEERING); // zAxis, accel, brake = true
 
 void setup(){
   Serial.begin(9600);
-  Joystick.begin();
+  pedalController.begin();
 
   if(EMA){
     EMA_ACCELERATOR = analogRead(acceleratorPin);  //set accelerator EMA for t=1
     EMA_BRAKE = analogRead(brakePin); // set brake EMA for t=1
-    EMA_CLUTCH = analogRead(clutchPin); // set clutch EMA for t=1
+    EMA_CLUTCH = analogRead(clutchPin); // set clutch EMA for t=1 
   }
 }
  
 void loop(){
-  // printing noise filter configuration
-  if(ignoreLSB && EMA){
-    Serial.print("EMA + ignoreLSB: ");
-  }else if(ignoreLSB){
-    Serial.print("ignoreLSB: ");
-  }else if(EMA){
-    Serial.print("EMA: ");
-  }else{
-    Serial.print("Unfiltered: ");
-  }
+
+  printOutputs(ignoreLSB, EMA);
 
   // LSB reduction
   if(ignoreLSB){
@@ -101,16 +106,25 @@ void loop(){
     
     //Serial.println(acceleratorCommanded);
   }
-  Joystick.setAccelerator(acceleratorCommanded);
-  Joystick.setBrake(brakeCommanded);
-  Joystick.setZAxis(clutchCommanded);
+  pedalController.setAccelerator(acceleratorCommanded);
+  pedalController.setBrake(brakeCommanded);
+  pedalController.setZAxis(clutchCommanded);
 
-  int currentButton1State = !digitalRead(joyButton1);
+  int currentButton1State = !digitalRead(dummyButton);
   //If loop - Check that the button has actually changed.
-  if (currentButton1State != lastButton1State){
+  if (currentButton1State != dummyButtonState){
     //If the button has changed, set the specified HID button to the Current Button State
-    Joystick.setButton(0, currentButton1State);
+    pedalController.setButton(0, currentButton1State);
     //Update the Stored Button State
-    lastButton1State = currentButton1State;
+    dummyButtonState = currentButton1State;
+  }
+}
+
+void printOutputs(bool ignoreLSB_, bool EMA_){
+  // printing noise filter configuration
+  if(ignoreLSB_){
+    Serial.print("ignoreLSB | ");
+  }if(EMA_){
+    Serial.print("EMA | ");
   }
 }
