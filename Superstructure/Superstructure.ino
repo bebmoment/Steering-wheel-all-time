@@ -46,7 +46,7 @@
   #define PRINT_MOTOR false
   #define PRINT_ENCODER false
 
-// EMA filter config
+// Floor pedal filter config
   bool EMA = true; // Exponential Movement Average
   bool ignoreLSB = true; // ignore least significant bits
 
@@ -62,9 +62,10 @@
       acceleratorCommanded, brakeCommanded, clutchCommanded 
       = 0;
 
-////////////////////////////////////////////////////////////////////////////////////////
-
+// create floor pedal "joystick"
 Joystick_ pedalController(0x12, JOYSTICK_TYPE_JOYSTICK, 1, 0, INCLUDE_X_AXIS, INCLUDE_Y_AXIS, INCLUDE_Z_AXIS, INCLUDE_RX_AXIS, INCLUDE_RY_AXIS, INCLUDE_RZ_AXIS, INCLUDE_RUTTER, INCLUDE_THROTTLE, INCLUDE_ACCELERATOR, INCLUDE_BRAKE, INCLUDE_STEERING); // zAxis, accel, brake = true
+
+////////////////////////////////////////////////////////////////////////////////////////
 
 void setup() {
     startSerialMonitor();
@@ -75,6 +76,10 @@ void setup() {
 
 void loop() {
 
+  encoderLoop();
+  motorLoop();
+  pedalLoop();
+  SerialMonitorLoop();
 }
 
 // setup functions
