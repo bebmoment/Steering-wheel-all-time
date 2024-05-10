@@ -39,7 +39,7 @@
   #define INCLUDE_THROTTLE false
   #define INCLUDE_ACCELERATOR true
   #define INCLUDE_BRAKE true
-  #define INCLUDE_STEERING false
+  #define INCLUDE_STEERING true
 
 // Serial monitor config
   #define PRINT_PEDALS true
@@ -127,6 +127,7 @@ void encoderLoop(){
     Serial.println(counter);
     temp = counter;
   }
+  pedalController.setSteering(counter);
 }
 
 void motorLoop(){

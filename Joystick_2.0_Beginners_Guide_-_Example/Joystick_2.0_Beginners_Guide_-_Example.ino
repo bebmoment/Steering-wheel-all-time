@@ -18,20 +18,21 @@
 #define ENCODER_INIT_VALUE -999
 
 // bunch of booleans to know what the heck is the constructor
-#define INCLUDE_X_AXIS false
-#define INCLUDE_Y_AXIS false
-#define INCLUDE_Z_AXIS false
+#define INCLUDE_X_AXIS true
+#define INCLUDE_Y_AXIS true
+#define INCLUDE_Z_AXIS true
 #define INCLUDE_RX_AXIS false
 #define INCLUDE_RY_AXIS false
 #define INCLUDE_RZ_AXIS false
 #define INCLUDE_RUTTER false
 #define INCLUDE_THROTTLE false
-#define INCLUDE_ACCELERATOR false
-#define INCLUDE_BRAKE false
+#define INCLUDE_ACCELERATOR true
+#define INCLUDE_BRAKE true
 #define INCLUDE_STEERING true
 //Initializing Axis as Integers, at a 0 default value
 int xAxis_ = 0;
 int yAxis_ = 0;
+int zAxis_ = 0;
 int rzAxis_ = 0;
 int throttle_ = 0;
 int steeringAxis = 0;
@@ -85,17 +86,17 @@ void loop() {
   //Setting Read functions for each axis and parsing correctly. The X axis will be used as an example for explanation
 
   //Reading the X Axis analog pin to the xAxis_ variable for processing
-  // xAxis_ = analogRead(joyX);
+  xAxis_ = analogRead(joyX);
   //Mapping the X Axis data from a 0-1023 to 0-255 range for a smoother action
-  // xAxis_ = map(xAxis_,4,1023,-255,255);
+  //xAxis_ = map(xAxis_,4,1023,-255,255);
   //Set the Joystick X Axis value as the new, smoother, value
-  // Joystick.setXAxis(xAxis_);
-  // Serial.println(xAxis_);
+  Joystick.setXAxis(xAxis_);
+  Serial.println(xAxis_);
 
-  // yAxis_ = analogRead(joyY);
-  // yAxis_ = map(yAxis_,4,1023,-255,255);
-  // Joystick.setYAxis(yAxis_);
-  // Serial.println(yAxis_);
+  yAxis_ = analogRead(joyY);
+  //yAxis_ = map(yAxis_,4,1023,-255,255);
+  Joystick.setYAxis(yAxis_);
+  Serial.println(yAxis_);
 
   // rzAxis_ = analogRead(joyRZ);
   // rzAxis_ = map(rzAxis_,0,1023,0,255);
@@ -132,9 +133,10 @@ void loop() {
   long newPosition = myEnc.read();
   if (newPosition != oldPosition) {
     oldPosition = newPosition;
-    Serial.println(newPosition); 
+    //Serial.println(newPosition); 
     steeringAxis = newPosition;
-    Joystick.setSteering(steeringAxis);
+    //Joystick.setSteering(steeringAxis);
+    Joystick.setZAxis(steeringAxis);
   }
 
 //Pole Delay/Debounce
