@@ -6,7 +6,6 @@
   #include <Joystick.h>
   #include <Encoder.h>
   #include <Arduino.h>
-  #include <Joystick.h>
 
 // Serial Monitor
   long baudRate = 9600;
@@ -48,18 +47,17 @@
 
 // Floor pedal filter config
   bool EMA = true; // Exponential Movement Average
-  bool ignoreLSB = true; // ignore least significant bits
+  int LSB_TO_IGNORE = 1; // how many LSB to ignore from incoming potentiometer info
 
 // configure EMA and LSB reduction filters for floor pedals
-  int LSB_TO_IGNORE = 1; // how many LSB to ignore from incoming potentiometer info
-  float EMA_a = 0.6;      //initialization of EMA alpha
+  int offset = 436; //offset pedal output
+  float EMA_alpha = 0.6;      //initialization of EMA alpha
 
   int dummyButtonState = 0;
 
 // initialize starting pedal values for t = 1
-  int acceleratorValue, brakeValue, clutchValue,
-      EMA_ACCELERATOR, EMA_BRAKE, EMA_CLUTCH, 
-      acceleratorCommanded, brakeCommanded, clutchCommanded 
+  int acceleratorCommanded, brakeCommanded, clutchCommanded,
+      accelPreviousState, brakePreviousState, clutchPreviousState
       = 0;
 
 // create floor pedal "joystick"
@@ -67,11 +65,30 @@ Joystick_ pedalController(0x12, JOYSTICK_TYPE_JOYSTICK, 1, 0, INCLUDE_X_AXIS, IN
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
+// Start IO
 void setup() {
-    startSerialMonitor();
-    startEncoder();
-    startMotor();
-    startPedals();
+  // Dummy button
+  pinMode(dummyButton1, INPUT_PULLUP);
+
+  // Encoder
+  pinMode(A, INPUT_PULLUP);
+  pinMode(B, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(A), A_INTERRUPT, RISING);
+  attachInterrupt(digitalPinToInterrupt(B), B_INTERRUPT, RISING);
+
+  // Motor
+  pinMode(RPWM_Output, OUTPUT);
+  pinMode(LPWM_Output, OUTPUT);
+
+  // Floor pedals
+  acceleratorCommanded = analogRead(acceleratorPin);  //set accelerator EMA for t=1
+  brakeCommanded = analogRead(brakePin); // set brake EMA for t=1
+  clutchCommanded = analogRead(clutchPin); // set clutch EMA for t=1
+  pedalController.begin();
+  
+  // Serial Monitor
+  Serial.begin(baudRate);
+  Serial.println("Started");
 }
 
 void loop() {
@@ -80,45 +97,6 @@ void loop() {
   motorLoop();
   pedalLoop();
   SerialMonitorLoop();
-}
-
-// setup functions
-void startSerialMonitor(){
-  Serial.begin(baudRate);
-  Serial.println("Started");
-}
-
-void startEncoder(){
-
-    pinMode(A, INPUT_PULLUP);
-    pinMode(B, INPUT_PULLUP);
-
-    attachInterrupt(digitalPinToInterrupt(A), A_INTERRUPT, RISING);
-    attachInterrupt(digitalPinToInterrupt(B), B_INTERRUPT, RISING);
-}
-
-void startMotor(){
-  pinMode(RPWM_Output, OUTPUT);
-  pinMode(LPWM_Output, OUTPUT);
-}
-
-void startPedals(){
-  if(EMA){
-    EMA_ACCELERATOR = analogRead(acceleratorPin);  //set accelerator EMA for t=1
-    EMA_BRAKE = analogRead(brakePin); // set brake EMA for t=1
-    EMA_CLUTCH = analogRead(clutchPin); // set clutch EMA for t=1
-  }
-}
-
-void SerialMonitorLoop(){
-  if(PRINT_PEDALS){
-    Serial.print("Accelerator = ");
-    Serial.print(acceleratorCommanded);
-    Serial.print(" | Brake = ");
-    Serial.print(brakeCommanded);
-    Serial.print(" | Clutch = ");
-    Serial.println(clutchCommanded);
-  }
 }
 
 // loop functions
@@ -134,34 +112,27 @@ void motorLoop(){
   setMotorPower(sensorValue);
 }
 
-void pedalLoop(){
-  // LSB reduction
-  if(ignoreLSB){
-    acceleratorValue = analogRead(acceleratorPin) >> LSB_TO_IGNORE;
-    brakeValue = analogRead(brakePin) >> LSB_TO_IGNORE;
-    clutchValue = analogRead(clutchPin) >> LSB_TO_IGNORE;
-  }else{
-    acceleratorValue = analogRead(acceleratorPin);
-    brakeValue = analogRead(brakePin);
-    clutchValue = analogRead(clutchPin);
-  }
+void pedalLoop(){ // This section is kept as compact as possible in order to maximize floor pedal accuracy and efficency.
+
+  acceleratorCommanded = (analogRead(acceleratorPin) >> LSB_TO_IGNORE) + offset;
+  brakeCommanded = (analogRead(brakePin) >> LSB_TO_IGNORE) + offset;
+  clutchCommanded = (analogRead(clutchPin) >> LSB_TO_IGNORE) + offset;
 
   // EMA filtering
   if(EMA){
-    EMA_ACCELERATOR = (EMA_a*acceleratorValue) + ((1-EMA_a)*EMA_ACCELERATOR);    //run accelerator EMA
-    EMA_BRAKE = (EMA_a*brakeValue) + ((1-EMA_a)*EMA_BRAKE);    //run brake EMA
-    EMA_CLUTCH = (EMA_a*clutchValue) + ((1-EMA_a)*EMA_CLUTCH);    //run brake EMA
 
-    acceleratorCommanded = EMA_ACCELERATOR + 512;
-    brakeCommanded = EMA_BRAKE + 512;
-    clutchCommanded = EMA_CLUTCH + 512;
-  
+    // run commanded values in the EMA
+    acceleratorCommanded = EMA(accelPreviousState, acceleratorCommanded);
+    brakeCommanded = EMA(brakePreviousState, brakeCommanded);
+    clutchCommanded = EMA(clutchPreviousState, clutchCommanded);
+
+    // set current potentiometer state as the new "previous" state
+    accelPreviousState = acceleratorCommanded;
+    brakePreviousState = brakeCommanded;
+    clutchPreviousState = clutchCommanded;
   }
-  else{
-    acceleratorCommanded = acceleratorValue + 512;
-    brakeCommanded = brakeValue + 512;
-    clutchCommanded = clutchValue + 512;
-  }
+
+  // map controller to commanded potentiometer values
   pedalController.setAccelerator(acceleratorCommanded);
   pedalController.setBrake(brakeCommanded);
   pedalController.setZAxis(clutchCommanded);
@@ -176,6 +147,25 @@ void pedalLoop(){
   }
 }
 
+void SerialMonitorLoop(){
+  if(PRINT_PEDALS){
+    Serial.print("Accelerator = ");
+    Serial.print(acceleratorCommanded);
+    Serial.print(" | Brake = ");
+    Serial.print(brakeCommanded);
+    Serial.print(" | Clutch = ");
+    Serial.println(clutchCommanded);
+  }
+}
+
+// Floor pedal functions
+int EMA(int previousState, int currentState){
+  
+  int y = currentState*EMA_alpha
+          + (1-EMA_alpha)*previousState;
+  return y;
+}
+
 // Encoder functions
 void A_INTERRUPT() {
   (LOW==digitalRead(A)) ? counter++ : counter--;
@@ -186,21 +176,19 @@ void B_INTERRUPT() {
 }
 
 // Motor functions
-void setMotorPower(int sensorValue)
-{
+void setMotorPower(int sensorValue){
     (512 > sensorValue) ? turn(true, sensorValue) : turn(false, sensorValue);
 }
 
-void turn(bool direction, int sensorValue)
-{
-    if (direction)
-    {
-        analogWrite(LPWM_Output, 0);
-        analogWrite(RPWM_Output, -(sensorValue - 511) / 2);
-    }
-    else
-    {
-        analogWrite(LPWM_Output, (sensorValue - 512) / 2);
-        analogWrite(RPWM_Output, 0);
-    }
+void turn(bool direction, int sensorValue){
+  if (direction)
+  {
+    analogWrite(LPWM_Output, 0);
+    analogWrite(RPWM_Output, -(sensorValue - 511) / 2);
+  }
+  else
+  {
+    analogWrite(LPWM_Output, (sensorValue - 512) / 2);
+    analogWrite(RPWM_Output, 0);
+  }
 }
