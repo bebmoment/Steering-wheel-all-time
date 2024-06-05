@@ -6,20 +6,42 @@
   #include <Joystick.h>
   #include <Encoder.h>
   #include <Arduino.h>
+  #include "DigitalWriteFast.h"
 
-// Serial Monitor
-  long baudRate = 9600;
+// Force feedback(encoder & motor)
+  #define SHIFT_UP 1
+  #define SHIFT_DOWN 0
+  #define encoderPinA 2
+  #define encoderPinB 3
+  // #define motorPinA 7
+  // #define motorPinB 8
+  // #define motorPinPWM 9
+  #define motorL_PWM 9
+  #define motorR_PWM 10
 
-// Encoder
-  #define A 0
-  #define B 1
-  volatile byte temp = 0;
-  volatile byte counter = 0;
+  #define ENCODER_MAX_VALUE 1200
+  #define ENCODER_MIN_VALUE -1200
+  #define MAX_PWM 200
 
-// Motor
-  #define SENSOR_PIN A4 // center pin of the potentiometer(motor)
-  const int RPWM_Output = 5; // Arduino PWM output pin 5; connect to IBT-2 pin 1 (RPWM)
-  const int LPWM_Output = 6; // Arduino PWM output pin 6; connect to IBT-2 pin 2 (LPWM)
+  bool isOutOfRange = false;
+  int32_t forces[2]={0};
+  Gains gains[2];
+  EffectParams effectparams[2];
+
+  volatile long value = 0;
+  int32_t g_force = 0;
+
+  int32_t  currentPosition = 0;
+  volatile int8_t oldState = 0;
+  const int8_t KNOBDIR[] = {
+    0, 1, -1, 0,
+    -1, 0, 0, 1,
+    1, 0, 0, -1,
+    0, -1, 1, 0
+  };
+
+  int lastButton1State = 0;
+  int lastButton2State = 0;
 
 // Potentiometers
   #define acceleratorPin A0
@@ -27,31 +49,18 @@
   #define clutchPin A2
   #define dummyButton1 9
 
-// Joystick constructors
-  #define INCLUDE_X_AXIS false
-  #define INCLUDE_Y_AXIS false
-  #define INCLUDE_Z_AXIS true
-  #define INCLUDE_RX_AXIS false
-  #define INCLUDE_RY_AXIS false
-  #define INCLUDE_RZ_AXIS false
-  #define INCLUDE_RUTTER false
-  #define INCLUDE_THROTTLE false
-  #define INCLUDE_ACCELERATOR true
-  #define INCLUDE_BRAKE true
-  #define INCLUDE_STEERING false
-
 // Serial monitor config
   #define PRINT_PEDALS true
   #define PRINT_MOTOR false
   #define PRINT_ENCODER false
 
 // Floor pedal filter config
-  bool EMA = true; // Exponential Movement Average
+  bool EMA = true; // Exponential Moving Average
   int LSB_TO_IGNORE = 1; // how many LSB to ignore from incoming potentiometer info
 
 // configure EMA and LSB reduction filters for floor pedals
   int offset = 436; //offset pedal output
-  float EMA_alpha = 0.6;      //initialization of EMA alpha
+  float EMA_alpha = 0.6; //initialization of EMA alpha
 
   int dummyButtonState = 0;
 
@@ -60,25 +69,58 @@
       accelPreviousState, brakePreviousState, clutchPreviousState
       = 0;
 
+// create steering wheel "joystick"
+Joystick_ WheelController(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_JOYSTICK,
+  8, 0,                  // Button Count, Hat Switch Count
+  true, true, false,     // X and Y, but no Z Axis
+  true, true, false,   //  Rx, Ry, no Rz
+  false, false,          // No rudder or throttle
+  false, false, false);    // No accelerator, brake, or steering
+
 // create floor pedal "joystick"
-Joystick_ pedalController(0x12, JOYSTICK_TYPE_JOYSTICK, 1, 0, INCLUDE_X_AXIS, INCLUDE_Y_AXIS, INCLUDE_Z_AXIS, INCLUDE_RX_AXIS, INCLUDE_RY_AXIS, INCLUDE_RZ_AXIS, INCLUDE_RUTTER, INCLUDE_THROTTLE, INCLUDE_ACCELERATOR, INCLUDE_BRAKE, INCLUDE_STEERING); // zAxis, accel, brake = true
+Joystick_ pedalController(0x12, JOYSTICK_TYPE_JOYSTICK, 
+  1, 0, 
+  false, false, true, 
+  false, false, false, 
+  false, false, 
+  true, true, false); // zAxis, accel, brake = true
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
 // Start IO
 void setup() {
-  // Dummy button
-  pinMode(dummyButton1, INPUT_PULLUP);
 
-  // Encoder
-  pinMode(A, INPUT_PULLUP);
-  pinMode(B, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(A), A_INTERRUPT, RISING);
-  attachInterrupt(digitalPinToInterrupt(B), B_INTERRUPT, RISING);
+  attachInterrupt(digitalPinToInterrupt(encoderPinA),tick,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(encoderPinB),tick,CHANGE);
 
-  // Motor
-  pinMode(RPWM_Output, OUTPUT);
-  pinMode(LPWM_Output, OUTPUT);
+  WheelController.setRyAxisRange(0, 500);
+  WheelController.setRxAxisRange(0, 500);
+  WheelController.setYAxisRange(0, 500);
+  WheelController.setXAxisRange(ENCODER_MIN_VALUE, ENCODER_MAX_VALUE);
+  WheelController.setGains(gains);
+  WheelController.begin(true);
+
+  // pinMode(motorPinA, OUTPUT);
+  // pinMode(motorPinB, OUTPUT);
+  // pinMode(motorPinPWM, OUTPUT);
+  pinMode(motorL_PWM, OUTPUT);
+  pinMode(motorR_PWM, OUTPUT);
+
+  pinMode(A0, INPUT_PULLUP);
+
+  // pins 1 and 0 to shifter and ground goes into shifter
+  pinMode(SHIFT_UP, INPUT_PULLUP);
+  pinMode(SHIFT_DOWN, INPUT_PULLUP);
+  
+  cli();
+  TCCR3A = 0; //set TCCR1A 0
+  TCCR3B = 0; //set TCCR1B 0
+  TCNT3  = 0; //counter init
+  OCR3A = 399;
+  TCCR3B |= (1 << WGM32); //open CTC mode
+  TCCR3B |= (1 << CS31); //set CS11 1(8-fold Prescaler)
+  TIMSK3 |= (1 << OCIE3A);
+  sei();
 
   // Floor pedals
   acceleratorCommanded = analogRead(acceleratorPin);  //set accelerator EMA for t=1
@@ -86,30 +128,97 @@ void setup() {
   clutchCommanded = analogRead(clutchPin); // set clutch EMA for t=1
   pedalController.begin();
   
+  // Dummy button
+  pinMode(dummyButton1, INPUT_PULLUP);
+
   // Serial Monitor
-  Serial.begin(baudRate);
+  Serial.begin(115200);
   Serial.println("Started");
 }
 
+ISR(TIMER3_COMPA_vect){
+  WheelController.getUSBPID();
+}
+
+unsigned int interval = 0;
+
 void loop() {
 
-  encoderLoop();
-  motorLoop();
+  forceFeedbackLoop();
   pedalLoop();
   SerialMonitorLoop();
 }
 
-// loop functions
-void encoderLoop(){
-  if (counter != temp) {
-    Serial.println(counter);
-    temp = counter;
+void forceFeedbackLoop(){
+  value = currentPosition;
+  
+  if(value > ENCODER_MAX_VALUE)
+  {
+    isOutOfRange = true;
+    value = ENCODER_MAX_VALUE;
+  }else if(value < ENCODER_MIN_VALUE)
+  {
+    isOutOfRange = true;
+    value = ENCODER_MIN_VALUE;
+  }else{
+    isOutOfRange = false;
   }
-}
 
-void motorLoop(){
-  int sensorValue = analogRead(SENSOR_PIN);
-  setMotorPower(sensorValue);
+  WheelController.setXAxis(value);
+  WheelController.setRxAxis(analogRead(A1));
+  WheelController.setRyAxis(analogRead(A2));
+  WheelController.setYAxis(analogRead(A3));
+
+  effectparams[0].springMaxPosition = ENCODER_MAX_VALUE;
+  effectparams[0].springPosition = value;
+  effectparams[1].springMaxPosition = 255;
+  effectparams[1].springPosition = 0;
+  WheelController.setEffectParams(effectparams);
+  WheelController.getForce(forces);
+
+  
+  if(!isOutOfRange){
+    if(forces[0] > 0)
+    {
+      // digitalWrite(motorPinA, HIGH);
+      // digitalWrite(motorPinB, LOW);
+      // analogWrite(motorPinPWM, abs(forces[0]));
+      analogWrite(motorL_PWM, abs(forces[0]));
+      analogWrite(motorR_PWM, 0);
+    }else{
+      // digitalWrite(motorPinA, LOW);
+      // digitalWrite(motorPinB, HIGH);
+      // analogWrite(motorPinPWM, abs(forces[0]));
+      analogWrite(motorL_PWM, 0);
+      analogWrite(motorR_PWM, abs(forces[0]));
+    }
+  }else{
+    if(value < 0){
+      // digitalWrite(motorPinA, LOW);
+      // digitalWrite(motorPinB, HIGH);
+      analogWrite(motorR_PWM, MAX_PWM);
+    }else{
+      // digitalWrite(motorPinA, HIGH);
+      // digitalWrite(motorPinB, LOW);
+      analogWrite(motorL_PWM, MAX_PWM);
+    }
+    // analogWrite(motorPinPWM, MAX_PWM);
+  }
+
+  int currentButton1State = !digitalRead(SHIFT_UP);
+  //If loop - Check that the button has actually changed.
+  if (currentButton1State != lastButton1State){
+    //If the button has changed, set the specified HID button to the Current Button State
+    WheelController.setButton(0, currentButton1State);
+    //Update the Stored Button State
+    lastButton1State = currentButton1State;
+  }
+
+  int currentButton2State = !digitalRead(SHIFT_DOWN);
+  if (currentButton2State != lastButton2State){
+    WheelController.setButton(1, currentButton2State);
+    lastButton2State = currentButton2State;
+  }
 }
 
 void pedalLoop(){ // This section is kept as compact as possible in order to maximize floor pedal accuracy and efficency.
@@ -158,37 +267,22 @@ void SerialMonitorLoop(){
   }
 }
 
+// Force feedback functions
+void tick(void)
+{
+  int sig1 = digitalReadFast(encoderPinA);
+  int sig2 = digitalReadFast(encoderPinB);
+  int8_t thisState = sig1 | (sig2 << 1);
+
+  if (oldState != thisState) {
+    currentPosition += KNOBDIR[thisState | (oldState<<2)];
+    oldState = thisState;
+  } 
+}
+
+
 // Floor pedal functions
 int EMA(int previousState, int currentState){
-  
-  int y = currentState*EMA_alpha
-          + (1-EMA_alpha)*previousState;
+  int y = currentState*EMA_alpha + (1-EMA_alpha)*previousState;
   return y;
-}
-
-// Encoder functions
-void A_INTERRUPT() {
-  (LOW==digitalRead(A)) ? counter++ : counter--;
-}
-
-void B_INTERRUPT() {
-  (LOW==digitalRead(B)) ? counter-- : counter++;
-}
-
-// Motor functions
-void setMotorPower(int sensorValue){
-    (512 > sensorValue) ? turn(true, sensorValue) : turn(false, sensorValue);
-}
-
-void turn(bool direction, int sensorValue){
-  if (direction)
-  {
-    analogWrite(LPWM_Output, 0);
-    analogWrite(RPWM_Output, -(sensorValue - 511) / 2);
-  }
-  else
-  {
-    analogWrite(LPWM_Output, (sensorValue - 512) / 2);
-    analogWrite(RPWM_Output, 0);
-  }
 }
