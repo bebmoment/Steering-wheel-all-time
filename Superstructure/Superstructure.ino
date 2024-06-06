@@ -4,7 +4,6 @@
 
 // Include libraries
   #include <Joystick.h>
-  #include <Encoder.h>
   #include <Arduino.h>
   #include "DigitalWriteFast.h"
 
@@ -55,12 +54,12 @@
   #define PRINT_ENCODER false
 
 // Floor pedal filter config
-  bool EMA = true; // Exponential Moving Average
+  bool use_EMA = true; // Exponential Moving Average
   int LSB_TO_IGNORE = 1; // how many LSB to ignore from incoming potentiometer info
 
 // configure EMA and LSB reduction filters for floor pedals
   int offset = 436; //offset pedal output
-  float EMA_alpha = 0.6; //initialization of EMA alpha
+  float EMA_alpha = 0.9; //initialization of EMA alpha
 
   int dummyButtonState = 0;
 
@@ -72,18 +71,10 @@
 // create steering wheel "joystick"
 Joystick_ WheelController(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_JOYSTICK,
   8, 0,                  // Button Count, Hat Switch Count
-  true, true, false,     // X and Y, but no Z Axis
+  true, true, true,     // X and Y, but no Z Axis
   true, true, false,   //  Rx, Ry, no Rz
   false, false,          // No rudder or throttle
-  false, false, false);    // No accelerator, brake, or steering
-
-// create floor pedal "joystick"
-Joystick_ pedalController(0x12, JOYSTICK_TYPE_JOYSTICK, 
-  1, 0, 
-  false, false, true, 
-  false, false, false, 
-  false, false, 
-  true, true, false); // zAxis, accel, brake = true
+  true, true, false);    // No accelerator, brake, or steering
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -106,7 +97,7 @@ void setup() {
   pinMode(motorL_PWM, OUTPUT);
   pinMode(motorR_PWM, OUTPUT);
 
-  pinMode(A0, INPUT_PULLUP);
+  //pinMode(A0, INPUT_PULLUP);
 
   // pins 1 and 0 to shifter and ground goes into shifter
   pinMode(SHIFT_UP, INPUT_PULLUP);
@@ -126,7 +117,6 @@ void setup() {
   acceleratorCommanded = analogRead(acceleratorPin);  //set accelerator EMA for t=1
   brakeCommanded = analogRead(brakePin); // set brake EMA for t=1
   clutchCommanded = analogRead(clutchPin); // set clutch EMA for t=1
-  pedalController.begin();
   
   // Dummy button
   pinMode(dummyButton1, INPUT_PULLUP);
@@ -146,7 +136,7 @@ void loop() {
 
   forceFeedbackLoop();
   pedalLoop();
-  SerialMonitorLoop();
+  //SerialMonitorLoop();
 }
 
 void forceFeedbackLoop(){
@@ -228,7 +218,7 @@ void pedalLoop(){ // This section is kept as compact as possible in order to max
   clutchCommanded = (analogRead(clutchPin) >> LSB_TO_IGNORE) + offset;
 
   // EMA filtering
-  if(EMA){
+  if(use_EMA){
 
     // run commanded values in the EMA
     acceleratorCommanded = EMA(accelPreviousState, acceleratorCommanded);
@@ -242,15 +232,15 @@ void pedalLoop(){ // This section is kept as compact as possible in order to max
   }
 
   // map controller to commanded potentiometer values
-  pedalController.setAccelerator(acceleratorCommanded);
-  pedalController.setBrake(brakeCommanded);
-  pedalController.setZAxis(clutchCommanded);
+  WheelController.setAccelerator(acceleratorCommanded);
+  WheelController.setZAxis(brakeCommanded);
+  //WheelController.setZAxis(clutchCommanded);
 
   int currentButton1State = !digitalRead(dummyButton1);
   //If loop - Check that the button has actually changed.
   if (currentButton1State != dummyButtonState){
     //If the button has changed, set the specified HID button to the Current Button State
-    pedalController.setButton(0, currentButton1State);
+    WheelController.setButton(0, currentButton1State);
     //Update the Stored Button State
     dummyButtonState = currentButton1State;
   }
