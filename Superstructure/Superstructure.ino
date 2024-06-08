@@ -70,11 +70,11 @@
 
 // create steering wheel "joystick"
 Joystick_ WheelController(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_JOYSTICK,
-  8, 0,                  // Button Count, Hat Switch Count
-  true, true, true,     // X and Y, but no Z Axis
-  true, true, true,   //  Rx, Ry, Rz
+  3, 0,                  // Button Count, Hat Switch Count
+  true, false, true,     // X and Y, but no Z Axis
+  false, false, true,   //  Rx, Ry, Rz
   false, false,          // No rudder or throttle
-  true, true, false);    // No accelerator, brake, or steering
+  true, false, false);    // No accelerator, brake, or steering
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -84,20 +84,13 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(encoderPinA),tick,CHANGE);
   attachInterrupt(digitalPinToInterrupt(encoderPinB),tick,CHANGE);
 
-  WheelController.setRyAxisRange(0, 500);
-  WheelController.setRxAxisRange(0, 500);
-  WheelController.setYAxisRange(0, 500);
+  // WheelController.setYAxisRange(0, 500);
   WheelController.setXAxisRange(ENCODER_MIN_VALUE, ENCODER_MAX_VALUE);
   WheelController.setGains(gains);
   WheelController.begin(true);
 
-  // pinMode(motorPinA, OUTPUT);
-  // pinMode(motorPinB, OUTPUT);
-  // pinMode(motorPinPWM, OUTPUT);
   pinMode(motorL_PWM, OUTPUT);
   pinMode(motorR_PWM, OUTPUT);
-
-  //pinMode(A0, INPUT_PULLUP);
 
   // pins 1 and 0 to shifter and ground goes into shifter
   pinMode(SHIFT_UP, INPUT_PULLUP);
@@ -126,7 +119,7 @@ void setup() {
   Serial.println("Started");
 }
 
-ISR(TIMER3_COMPA_vect){
+ISR(TIMER3_COMPA_vect) {
   WheelController.getUSBPID();
 }
 
@@ -139,25 +132,21 @@ void loop() {
   //SerialMonitorLoop();
 }
 
-void forceFeedbackLoop(){
+void forceFeedbackLoop() {
   value = currentPosition;
   
-  if(value > ENCODER_MAX_VALUE)
-  {
+  if(value > ENCODER_MAX_VALUE) {
     isOutOfRange = true;
     value = ENCODER_MAX_VALUE;
-  }else if(value < ENCODER_MIN_VALUE)
-  {
+  } else if(value < ENCODER_MIN_VALUE) {
     isOutOfRange = true;
     value = ENCODER_MIN_VALUE;
-  }else{
+  } else {
     isOutOfRange = false;
   }
 
   WheelController.setXAxis(value);
-  WheelController.setRxAxis(analogRead(A1));
-  WheelController.setRyAxis(analogRead(A2));
-  WheelController.setYAxis(analogRead(A3));
+  // WheelController.setYAxis(analogRead(A3));
 
   effectparams[0].springMaxPosition = ENCODER_MAX_VALUE;
   effectparams[0].springPosition = value;
@@ -167,37 +156,25 @@ void forceFeedbackLoop(){
   WheelController.getForce(forces);
 
   
-  if(!isOutOfRange){
-    if(forces[0] > 0)
-    {
-      // digitalWrite(motorPinA, HIGH);
-      // digitalWrite(motorPinB, LOW);
-      // analogWrite(motorPinPWM, abs(forces[0]));
+  if(!isOutOfRange) {
+    if(forces[0] > 0) {
       analogWrite(motorL_PWM, abs(forces[0]));
       analogWrite(motorR_PWM, 0);
-    }else{
-      // digitalWrite(motorPinA, LOW);
-      // digitalWrite(motorPinB, HIGH);
-      // analogWrite(motorPinPWM, abs(forces[0]));
+    } else {
       analogWrite(motorL_PWM, 0);
       analogWrite(motorR_PWM, abs(forces[0]));
     }
-  }else{
+  } else {
     if(value < 0){
-      // digitalWrite(motorPinA, LOW);
-      // digitalWrite(motorPinB, HIGH);
       analogWrite(motorR_PWM, MAX_PWM);
-    }else{
-      // digitalWrite(motorPinA, HIGH);
-      // digitalWrite(motorPinB, LOW);
+    } else{
       analogWrite(motorL_PWM, MAX_PWM);
     }
-    // analogWrite(motorPinPWM, MAX_PWM);
   }
 
   int currentButton1State = !digitalRead(SHIFT_UP);
   //If loop - Check that the button has actually changed.
-  if (currentButton1State != lastButton1State){
+  if (currentButton1State != lastButton1State) {
     //If the button has changed, set the specified HID button to the Current Button State
     WheelController.setButton(0, currentButton1State);
     //Update the Stored Button State
@@ -205,10 +182,11 @@ void forceFeedbackLoop(){
   }
 
   int currentButton2State = !digitalRead(SHIFT_DOWN);
-  if (currentButton2State != lastButton2State){
+  if (currentButton2State != lastButton2State) {
     WheelController.setButton(1, currentButton2State);
     lastButton2State = currentButton2State;
   }
+
 }
 
 void pedalLoop(){ // This section is kept as compact as possible in order to maximize floor pedal accuracy and efficency.
@@ -240,7 +218,7 @@ void pedalLoop(){ // This section is kept as compact as possible in order to max
   //If loop - Check that the button has actually changed.
   if (currentButton1State != dummyButtonState){
     //If the button has changed, set the specified HID button to the Current Button State
-    WheelController.setButton(0, currentButton1State);
+    WheelController.setButton(2, currentButton1State);
     //Update the Stored Button State
     dummyButtonState = currentButton1State;
   }
@@ -258,8 +236,7 @@ void SerialMonitorLoop(){
 }
 
 // Force feedback functions
-void tick(void)
-{
+void tick(void) {
   int sig1 = digitalReadFast(encoderPinA);
   int sig2 = digitalReadFast(encoderPinB);
   int8_t thisState = sig1 | (sig2 << 1);
