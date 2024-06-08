@@ -72,7 +72,7 @@
 Joystick_ WheelController(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_JOYSTICK,
   8, 0,                  // Button Count, Hat Switch Count
   true, true, true,     // X and Y, but no Z Axis
-  true, true, false,   //  Rx, Ry, no Rz
+  true, true, true,   //  Rx, Ry, Rz
   false, false,          // No rudder or throttle
   true, true, false);    // No accelerator, brake, or steering
 
@@ -233,7 +233,7 @@ void pedalLoop(){ // This section is kept as compact as possible in order to max
 
   // map controller to commanded potentiometer values
   WheelController.setAccelerator(acceleratorCommanded);
-  WheelController.setZAxis(brakeCommanded);
+  WheelController.setRzAxis(brakeCommanded);
   //WheelController.setZAxis(clutchCommanded);
 
   int currentButton1State = !digitalRead(dummyButton1);
