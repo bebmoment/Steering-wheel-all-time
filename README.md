@@ -5,6 +5,9 @@ The Steering Wheel of All Time is a project that implements a force-feedback ste
 ## Getting Started
 
 1. **Clone the repository**:
+    ```sh
+    git clone (repository-url)
+    ```
 
 2. **Open the project in Arduino IDE**:
     - Open the `.ino` files in the respective directories.
