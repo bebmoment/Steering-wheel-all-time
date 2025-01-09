@@ -6,7 +6,7 @@ The Steering Wheel of All Time is a project that implements a force-feedback ste
 
 1. **Clone the repository**:
     ```sh
-    git clone [repository-url]
+    git clone [repository url]
     ```
 
 2. **Open the project in Arduino IDE**:
