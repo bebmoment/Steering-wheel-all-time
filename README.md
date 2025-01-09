@@ -9,18 +9,14 @@ The Steering Wheel of All Time is a project that implements a force-feedback ste
     git clone [repository url]
     ```
 
-2. **Open the project in Arduino IDE**:
-    - Open the `.ino` files in the respective directories.
+2. **Dependencides**:
+    - Install the dependencies for this project:
+        - [Joystick Library](https://github.com/MHeironimus/ArduinoJoystickLibrary)
+        - [Encoder Library](https://www.pjrc.com/teensy/td_libs_Encoder.html)
 
-3. **Upload the code to your Arduino board**:
-    - Connect your Arduino board to your computer.
-    - Select the appropriate board and port in the Arduino IDE.
-    - Upload the code.
-
-## Dependencies
-
-- [Joystick Library](https://github.com/MHeironimus/ArduinoJoystickLibrary)
-- [Encoder Library](https://www.pjrc.com/teensy/td_libs_Encoder.html)
+3. **Upload the code to the Arduino board**:
+    - Connect the Leonardo to the device on which the project has been set-up.
+    - Deploy code.
 
 ## Usage
 
